@@ -13,7 +13,7 @@
 --g1:#49BE7C; --g2:#EDB64B; --g3:#F08A4B; --g4:#EF5F62;
 --sero:#F0894A; --adren:#E3B54C; --anticho:#EF5F62; --aoste:#A982E8;
 --cholin:#5FC46E; --hypno:#5B9BE8; --opio:#89D6FF;
---r:16px; --rail:86px;
+--r:16px; --rail:56px;
 }
 :root[data-theme="light"]{
 --bg:#F3F5F9; --bg2:#E9EDF4; --card:#FFFFFF; --card2:#F6F8FC; --line:#D9E1EC;
@@ -50,14 +50,13 @@ nav .rlogo{width:44px;height:44px;border-radius:50%;background:var(--card2);bord
 display:grid;place-items:center;margin:2px auto 9px;flex:none}
 nav .rlogo svg{width:25px;height:25px}
 nav button{flex:none;width:100%;border:0;background:none;color:var(--muted);font:inherit;
-font-size:.6rem;font-weight:700;line-height:1.2;padding:9px 3px;cursor:pointer;display:flex;
-flex-direction:column;align-items:center;gap:5px;border-left:3px solid transparent;text-align:center;
-word-break:break-word;hyphens:auto}
+padding:11px 4px;cursor:pointer;display:grid;place-items:center;
+border-left:3px solid transparent}
 nav button svg{width:25px;height:25px;flex:none}
 nav button.on{color:var(--accent2);border-left-color:var(--accent2);background:color-mix(in srgb,var(--accent) 10%,transparent)}
 @media(min-width:900px){
-:root{--rail:124px}
-nav button{font-size:.76rem;padding:12px 7px;gap:6px}
+:root{--rail:68px}
+nav button{padding:13px 4px}
 nav button svg{width:28px;height:28px}
 nav .rlogo{width:52px;height:52px;margin-bottom:12px}
 nav .rlogo svg{width:29px;height:29px}
@@ -594,7 +593,7 @@ go(t, true);
 });
 try{ history.replaceState({tab:"accueil"}, "", location.hash || "#accueil"); }catch(e){}
 $("#nav").innerHTML = `<div class="rlogo" aria-hidden="true"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 4 6v6c0 4.4 3.3 8.3 8 9.5 4.7-1.2 8-5.1 8-9.5V6l-8-3.5Z"/><path d="M12 8v7M8.5 11.5h7"/></svg></div>`
-+ TABS.map(([id,ic,lb])=>`<button data-t="${id}" title="${lb}" aria-label="${lb}" class="${id==='accueil'?'on':''}">${ic}${lb}</button>`).join("");
++ TABS.map(([id,ic,lb])=>`<button data-t="${id}" title="${lb}" aria-label="${lb}" class="${id==='accueil'?'on':''}">${ic}</button>`).join("");
 $("#nav").addEventListener("click", e=>{ const b=e.target.closest("button"); if(b) go(b.dataset.t); });
 $("#bsearch").onclick = ()=> go("recherche");
 $("#btheme").onclick = ()=>{
@@ -1196,6 +1195,7 @@ const onSig=new Set();
 const ROWS=["Constantes","Sécrétions","Conscience","Pupilles","Tonus","Molécules","Contexte"];
 function renderToxidromes(){
 $("#s-toxidromes").innerHTML = `
+<h2 class="pt">Toxidromes</h2>
 <p class="ps">Cochez les signes observés. Le toxidrome le plus probable s'affiche.</p>
 <div class="row" style="margin-bottom:11px"><button class="b" id="rst">Réinitialiser</button></div>
 <div class="tx"><div id="sigs"></div><div id="txout"></div></div>`;
@@ -1326,6 +1326,7 @@ function renderContexte(){
 const z = $("#s-contexte");
 if(SUB.contexte === null){
 z.innerHTML = `
+<h2 class="pt">Environnement</h2>
 <p class="ps">Choisissez les circonstances de découverte.</p>
 <div class="cgrid">${DB.contextes.map((c,i)=>`
 <button class="cbtn" style="--qc:${COULCAT[i%COULCAT.length]}" onclick="openCat('contexte',${i})">
