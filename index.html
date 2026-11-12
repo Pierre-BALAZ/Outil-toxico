@@ -189,23 +189,12 @@ ul.li li:before{content:"";position:absolute;left:2px;top:12px;width:5px;height:
 position:relative;overflow:hidden;min-width:0}
 .whl .wlab{display:block;text-align:center;font-size:.58rem;font-weight:800;text-transform:uppercase;
 letter-spacing:.07em;color:var(--muted)}
-.whl .wval{display:block;text-align:center;font-size:1.22rem;font-weight:800;color:var(--ink2);
-line-height:1.45;font-variant-numeric:tabular-nums}
-.wtrack{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;
-cursor:ew-resize;touch-action:pan-x}
-.wtrack::-webkit-scrollbar{display:none}
-.wtrack:focus-visible{outline:2px solid var(--accent2);outline-offset:-2px;border-radius:8px}
-.wpad{display:flex}
-.wpad:before,.wpad:after{content:"";flex:none;width:50%}
-.wrule{flex:none;height:26px;background:
-repeating-linear-gradient(90deg,var(--line) 0 1.5px,transparent 1.5px 9px),
-repeating-linear-gradient(90deg,var(--muted) 0 1.5px,transparent 1.5px 45px);
-background-size:100% 13px,100% 26px;background-position:0 13px,0 0;background-repeat:repeat-x}
-.whl:after{content:"";position:absolute;left:50%;bottom:7px;width:2.5px;height:26px;border-radius:2px;
-background:var(--accent2);transform:translateX(-50%);pointer-events:none}
+.wsel{width:calc(100% - 20px);margin:3px 10px 7px;text-align:center;text-align-last:center;
+font-size:1.14rem;font-weight:800;color:var(--ink2);font-variant-numeric:tabular-nums;
+padding:7px 4px}
+@media(max-width:360px){.wsel{font-size:1rem}}
 .wtime{width:calc(100% - 20px);margin:4px 10px 8px;text-align:center}
 .wmode{width:100%;margin-bottom:11px;font-size:.78rem}
-@media(max-width:360px){.whl .wval{font-size:1.05rem}}
 .azbar{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;margin:9px 0 4px}
 .azbar button{font:800 .74rem/1 inherit;padding:7px 0;border-radius:7px;cursor:pointer;
 border:1px solid var(--line);background:var(--card2);color:var(--accent2)}
@@ -744,16 +733,12 @@ $("#s-calcul").innerHTML = `
 <button class="b gho" id="addm" style="width:100%;margin-bottom:11px">+ Ajouter une molécule</button>
 <div class="wheels">
 <div class="whl">
-<span class="wlab">Poids estimé</span>
-<span class="wval" id="poidsv">70 kg</span>
-<div class="wtrack" id="wpoids" tabindex="0" role="slider" aria-label="Poids estimé en kilogrammes"
-aria-valuemin="3" aria-valuemax="200" aria-valuenow="70"><div class="wpad"><div class="wrule"></div></div></div>
+<span class="wlab"><label for="selpoids">Poids estimé</label></span>
+<select class="wsel" id="selpoids" aria-label="Poids estimé en kilogrammes"></select>
 </div>
 <div class="whl" id="whdelai">
-<span class="wlab">Délai écoulé</span>
-<span class="wval" id="hv">0 min</span>
-<div class="wtrack" id="wh" tabindex="0" role="slider" aria-label="Délai écoulé depuis l'ingestion, en heures"
-aria-valuemin="0" aria-valuemax="48" aria-valuenow="0"><div class="wpad"><div class="wrule"></div></div></div>
+<span class="wlab"><label for="seldelai">Délai écoulé</label></span>
+<select class="wsel" id="seldelai" aria-label="Délai écoulé depuis l'ingestion"></select>
 </div>
 <div class="whl" id="whheure" style="display:none">
 <span class="wlab">Heure de prise</span>
@@ -766,8 +751,9 @@ aria-valuemin="0" aria-valuemax="48" aria-valuenow="0"><div class="wpad"><div cl
 <div id="out"></div>
 </div>`;
 $("#addm").onclick = ()=> addMole();
-molette("wpoids", 3, 200, 1, ()=>CS.poids, v=>{ CS.poids=v; $("#poidsv").textContent=v+" kg"; });
-molette("wh", 0, 48, 0.25, ()=>CS.h, v=>{ CS.h=v; $("#hv").textContent=fmtH(v); });
+majPoids(); majDelai();
+$("#selpoids").onchange = e=>{ CS.poids = +e.target.value; calc(); };
+$("#seldelai").onchange = e=>{ CS.h = +e.target.value; calc(); };
 $("#bmode").onclick = ()=>{
 CS.mode = CS.mode==="depuis"?"heure":"depuis";
 const hr = CS.mode==="heure";
@@ -775,39 +761,32 @@ $("#bmode").textContent = hr?"Saisir plutôt le délai écoulé":"Saisir plutôt
 $("#whdelai").style.display = hr?"none":"";
 $("#whheure").style.display = hr?"":"none";
 if(hr && !$("#itime").value) setNow();
+if(!hr) majDelai();
 calc();
 };
-$("#itime").oninput = fromTime;
+$("#itime").oninput = ()=>{ fromTime(); majDelai(); };
 $("#bnow").onclick = setNow;
 addMole();
 }
-// Molette : un ruban gradué que l'on fait défiler, l'aiguille restant au centre. La valeur
-// affichée suit le doigt ; le recalcul complet n'est lancé qu'à la pause, pour ne pas redessiner
-// les tracés à chaque image.
-function molette(id, min, max, pas, lire, poser){
-const t = $("#" + id), rule = t.querySelector(".wrule");
-const PX = 9, n = Math.round((max - min) / pas);
-rule.style.width = (n * PX) + "px";
-let interne = false, minuteur = 0;
-const vers = v => { interne = true; t.scrollLeft = Math.round((v - min) / pas) * PX;
-requestAnimationFrame(() => { interne = false; }); };
-const applique = v => {
-v = Math.min(max, Math.max(min, Math.round(v / pas) * pas));
-poser(v); t.setAttribute("aria-valuenow", v);
-clearTimeout(minuteur); minuteur = setTimeout(calc, 90);
-};
-t.addEventListener("scroll", () => { if(!interne) applique(min + (t.scrollLeft / PX) * pas); }, {passive:true});
-t.addEventListener("keydown", e => {
-const d = e.key === "ArrowRight" || e.key === "ArrowUp" ? pas
-: e.key === "ArrowLeft" || e.key === "ArrowDown" ? -pas
-: e.key === "PageUp" ? pas*10 : e.key === "PageDown" ? -pas*10 : 0;
-if(!d) return;
-e.preventDefault();
-const v = Math.min(max, Math.max(min, lire() + d));
-applique(v); vers(v);
-});
-// la largeur n'est connue qu'une fois la molette dans la page
-requestAnimationFrame(() => vers(lire()));
+// Listes de valeurs. Le poids va de 3 à 200 kg au kilogramme près. Le délai est resserré là où
+// la décision se joue — minutes puis quarts d'heure sur les deux premières heures — et s'espace
+// ensuite, jusqu'à 48 h.
+const PAS_H = [0,.0833,.1667,.25,.3333,.5,.6667,.75,.8333,1,1.25,1.5,1.75,2,2.5,3,3.5,4,4.5,5,5.5,6,
+7,8,9,10,11,12,14,16,18,20,24,30,36,42,48];
+function majPoids(){
+const z = $("#selpoids"); if(!z) return;
+let o = "";
+for(let v=3; v<=200; v++) o += `<option value="${v}"${v===CS.poids?" selected":""}>${v} kg</option>`;
+z.innerHTML = o; z.value = String(CS.poids);
+}
+// Le délai peut venir de l'heure de prise, qui ne tombe pas sur une valeur de la liste : on
+// l'ajoute alors à sa place plutôt que de rapprocher le patient de la graduation voisine.
+function majDelai(){
+const z = $("#seldelai"); if(!z) return;
+const vals = PAS_H.slice();
+if(!vals.some(v=>Math.abs(v-CS.h)<1e-6)){ vals.push(CS.h); vals.sort((a,b)=>a-b); }
+z.innerHTML = vals.map(v=>`<option value="${v}"${Math.abs(v-CS.h)<1e-6?" selected":""}>${esc(fmtH(v))}</option>`).join("");
+z.value = String(CS.h);
 }
 function setNow(){ const d=new Date(); $("#itime").value=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); fromTime(); }
 function fromTime(){
@@ -1137,7 +1116,14 @@ ${gy}
 ${pt}${gx}
 <text class="al" x="${L}" y="${B+30}">heures depuis l'ingestion · paracétamolémie en mg/L</text></svg>`;
 }
-function prSaisie(v){ PCP.v = v; const z=$("#prout"); if(z) z.innerHTML = prVerdict(); }
+// La saisie rafraîchit le verdict écrit ET le tracé : le point du patient est l'information
+// que l'on vient chercher. On ne relance pas calc(), qui reconstruirait la page et ferait
+// perdre le focus au champ en cours de frappe.
+function prSaisie(v){
+PCP.v = v;
+const z=$("#prout"); if(z) z.innerHTML = prVerdict();
+const g=$("#prplot"); if(g) g.innerHTML = plotRumack(CS.h);
+}
 function prUnite(u){ PCP.u = u; drawMoles(); calc(); }
 function prVerdict(){
 const h = CS.h, cp = prMg();
@@ -1176,7 +1162,7 @@ oninput="prSaisie(this.value)"></div>
 <option value="µmol"${PCP.u==="µmol"?" selected":""}>µmol/L</option></select></div>
 </div>
 <div id="prout">${prVerdict()}</div>
-${plotRumack(h)}
+<div id="prplot">${plotRumack(h)}</div>
 <p class="lgd"><span style="--c:var(--g4)">traiter</span><span style="--c:var(--g3)">traiter si patient à risque</span><span style="--c:var(--g1)">pas d'indication</span></p>
 <p class="capt">Lignes définies par la formule C(t) = C₄ × 2^((4 − t) / 4), soit une décroissance log-linéaire
 de demi-vie 4 h : 150 mg/L à H4 pour la ligne de traitement, 100 mg/L pour celle du patient à risque.
