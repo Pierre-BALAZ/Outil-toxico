@@ -184,17 +184,18 @@ width:36%;border-top:1px solid var(--line);font-size:.79rem}
 ul.li{list-style:none;font-size:.86rem}
 ul.li li{padding:4px 0 4px 15px;position:relative}
 ul.li li:before{content:"";position:absolute;left:2px;top:12px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
-.wheels{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:8px}
 .whl{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:9px 0 7px;
 position:relative;overflow:hidden;min-width:0}
 .whl .wlab{display:block;text-align:center;font-size:.58rem;font-weight:800;text-transform:uppercase;
 letter-spacing:.07em;color:var(--muted)}
+.chead{display:flex;gap:11px;align-items:flex-start}
+.chtt{flex:1 1 auto;min-width:0}
+.chpo{flex:0 0 112px;margin:3px 0 0}
+.chpo .wsel{font-size:1.02rem}
 .wsel{width:calc(100% - 20px);margin:3px 10px 7px;text-align:center;text-align-last:center;
 font-size:1.14rem;font-weight:800;color:var(--ink2);font-variant-numeric:tabular-nums;
 padding:7px 4px}
 @media(max-width:360px){.wsel{font-size:1rem}}
-.wtime{width:calc(100% - 20px);margin:4px 10px 8px;text-align:center}
-.wmode{width:100%;margin-bottom:11px;font-size:.78rem}
 .azbar{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;margin:9px 0 4px}
 .azbar button{font:800 .74rem/1 inherit;padding:7px 0;border-radius:7px;cursor:pointer;
 border:1px solid var(--line);background:var(--card2);color:var(--accent2)}
@@ -736,51 +737,28 @@ $("#s-accueil").innerHTML = `
 `<button class="qbtn" style="--qc:${c}" onclick="go('${t}')">${ic}<div class="qn">${esc(n)}</div><div class="qd">${esc(d)}</div></button>`).join("")}</div>
 </div>`;
 }
-const CS = {ent:[], poids:70, h:0, mode:"depuis"};
+const CS = {ent:[], poids:70};   // le délai appartient désormais à chaque molécule
 let uid = 0;
 function renderCalcul(){
 $("#s-calcul").innerHTML = `
-<h2 class="pt">Calculateur de dose</h2>
-<p class="ps">Outil d'aide pour estimer le potentiel d'aggravation du patient.</p>
+<div class="chead">
+<div class="chtt"><h2 class="pt">Calculateur de dose</h2>
+<p class="ps">Outil d'aide pour estimer le potentiel d'aggravation du patient.</p></div>
+<div class="whl chpo">
+<span class="wlab"><label for="selpoids">Poids estimé</label></span>
+<select class="wsel" id="selpoids" aria-label="Poids estimé en kilogrammes"></select>
+</div>
+</div>
 <div class="calcwrap">
 <div>
 <div id="moles"></div>
 <button class="b gho" id="addm" style="width:100%;margin-bottom:11px">+ Ajouter une molécule</button>
-<div class="wheels">
-<div class="whl">
-<span class="wlab"><label for="selpoids">Poids estimé</label></span>
-<select class="wsel" id="selpoids" aria-label="Poids estimé en kilogrammes"></select>
-</div>
-<div class="whl" id="whdelai">
-<span class="wlab"><label for="seldelai">Délai écoulé</label></span>
-<select class="wsel" id="seldelai" aria-label="Délai écoulé depuis l'ingestion"></select>
-</div>
-<div class="whl" id="whheure" style="display:none">
-<span class="wlab">Heure de prise</span>
-<input id="itime" type="time" class="wtime">
-<button class="b gho" id="bnow" style="width:calc(100% - 20px);margin:0 10px 8px">Maintenant</button>
-</div>
-</div>
-<button class="b gho wmode" id="bmode">Saisir plutôt l'heure de prise</button>
 </div>
 <div id="out"></div>
 </div>`;
 $("#addm").onclick = ()=> addMole();
-majPoids(); majDelai();
+majPoids();
 $("#selpoids").onchange = e=>{ CS.poids = +e.target.value; calc(); };
-$("#seldelai").onchange = e=>{ CS.h = +e.target.value; drawMoles(); calc(); };
-$("#bmode").onclick = ()=>{
-CS.mode = CS.mode==="depuis"?"heure":"depuis";
-const hr = CS.mode==="heure";
-$("#bmode").textContent = hr?"Saisir plutôt le délai écoulé":"Saisir plutôt l'heure de prise";
-$("#whdelai").style.display = hr?"none":"";
-$("#whheure").style.display = hr?"":"none";
-if(hr && !$("#itime").value) setNow();
-if(!hr) majDelai();
-calc();
-};
-$("#itime").oninput = ()=>{ fromTime(); majDelai(); };
-$("#bnow").onclick = setNow;
 addMole();
 }
 // Listes de valeurs. Le poids va de 3 à 200 kg au kilogramme près. Le délai est resserré là où
@@ -794,30 +772,14 @@ let o = "";
 for(let v=3; v<=200; v++) o += `<option value="${v}"${v===CS.poids?" selected":""}>${v} kg</option>`;
 z.innerHTML = o; z.value = String(CS.poids);
 }
-// Le délai peut venir de l'heure de prise, qui ne tombe pas sur une valeur de la liste : on
-// l'ajoute alors à sa place plutôt que de rapprocher le patient de la graduation voisine.
-// Les mêmes graduations que le sélecteur général, pour un délai propre à une molécule.
+// Graduations du délai d'une molécule. « Inconnu » est ajouté en tête par l'appelant.
 function optDelais(cur){
-const vals = PAS_H.slice();
-if(cur!=null && !vals.some(v=>Math.abs(v-cur)<1e-6)){ vals.push(cur); vals.sort((a,b)=>a-b); }
-return vals.map(v=>`<option value="${v}"${cur!=null&&Math.abs(v-cur)<1e-6?" selected":""}>${esc(fmtH(v))}</option>`).join("");
-}
-function majDelai(){
-const z = $("#seldelai"); if(!z) return;
-const vals = PAS_H.slice();
-if(!vals.some(v=>Math.abs(v-CS.h)<1e-6)){ vals.push(CS.h); vals.sort((a,b)=>a-b); }
-z.innerHTML = vals.map(v=>`<option value="${v}"${Math.abs(v-CS.h)<1e-6?" selected":""}>${esc(fmtH(v))}</option>`).join("");
-z.value = String(CS.h);
-}
-function setNow(){ const d=new Date(); $("#itime").value=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); fromTime(); }
-function fromTime(){
-const v=$("#itime").value; if(!v) return;
-const [H,M]=v.split(":").map(Number), now=new Date(), t=new Date(now);
-t.setHours(H,M,0,0); if(t>now) t.setDate(t.getDate()-1);
-CS.h=Math.max(0,(now-t)/3600000); calc();
+return PAS_H.map(v=>`<option value="${v}"${cur!=null&&Math.abs(v-cur)<1e-6?" selected":""}>${esc(fmtH(v))}</option>`).join("");
 }
 function addMole(){
-CS.ent.push({id:++uid, med:null, nb:1, dose:"", unit:1, lp:false});
+// délai nul par défaut : « Inconnu » tant que le clinicien ne l'a pas renseigné,
+// plutôt qu'un 0 min qui affirmerait une prise à l'instant
+CS.ent.push({id:++uid, med:null, nb:1, dose:"", unit:1, lp:false, h:null});
 drawMoles(); calc();
 }
 function delMole(id){
@@ -871,11 +833,11 @@ ${dosList(e)}</div>
 <option value="1000"${e.unit===1000?" selected":""}>g</option>
 <option value="UI"${e.unit==="UI"?" selected":""}>UI</option></select></div>
 </div>
-${CS.ent.length>1?`<div style="margin-top:9px">
-<label class="fl" for="mh${e.id}">Délai propre à cette molécule</label>
+<div style="margin-top:9px">
+<label class="fl" for="mh${e.id}">Délai écoulé depuis la prise</label>
 <select class="imh" id="mh${e.id}" data-id="${e.id}">
-<option value="">Même que ci-dessus — ${esc(fmtH(CS.h))}</option>
-${optDelais(e.h)}</select></div>`:""}
+<option value="?"${e.h==null?" selected":""}>Inconnu</option>
+${optDelais(e.h)}</select></div>
 ${dosChips(e)}
 ${e.med && e.med.lpx ? `<label class="sw" style="margin-top:10px">
 <input type="checkbox" class="ilp" data-id="${e.id}"${e.lp?" checked":""}><i></i>
@@ -905,26 +867,26 @@ $("#moles").querySelectorAll(".inb").forEach(i=> i.oninput=()=>{ ent(i.dataset.i
 $("#moles").querySelectorAll(".idose").forEach(i=> i.oninput=()=>{ ent(i.dataset.id).dose=parseFloat(i.value)||0; calc(); });
 $("#moles").querySelectorAll(".iunit").forEach(i=> i.onchange=()=>{ const v=i.value; ent(i.dataset.id).unit = (v==="UI"?"UI":parseFloat(v)); calc(); });
 $("#moles").querySelectorAll(".imh").forEach(i=> i.onchange=()=>{
-const v=i.value; ent(i.dataset.id).h = v===""?null:+v; calc(); });
+const v=i.value; ent(i.dataset.id).h = v==="?"?null:+v; calc(); });
 $("#moles").querySelectorAll(".ilp").forEach(i=> i.onchange=()=>{ ent(i.dataset.id).lp=i.checked; drawMoles(); calc(); });
 }
 function calc(){
 const o=$("#out"); if(!o) return;
 const act = CS.ent.filter(e=>e.med);
 if(!act.length){ o.innerHTML = `<div class="card empty">Choisissez une molécule pour afficher la cinétique<br>et le potentiel d'aggravation.</div>`; return; }
-const poids=CS.poids, h=CS.h;
+const poids=CS.poids;
 const res = act.map(e=>{
 const isUI = e.unit==="UI";
 const doseMg=(e.nb||0)*(e.dose||0)*(isUI?1:e.unit);
 return {e, doseMg, isUI, g:gravite(e.med,doseMg,poids,isUI), tmax:tmaxOf(e), obs:obsOf(e),
-h: e.h==null ? CS.h : e.h};
+h: e.h};
 });
 const worst = res.reduce((a,b)=> b.g.lv>a.g.lv?b:a, res[0]);
 const maxObs = Math.max(...res.map(r=>r.obs));
 // Les délais peuvent différer d'une molécule à l'autre : le temps de surveillance restant est
 // celui de la molécule qui en a le plus devant elle, et non celui du délai général.
-const reste = Math.max(...res.map(r=>r.obs - r.h));
-const hVarie = res.some(r=>r.e.h!=null);
+const connus = res.filter(r=>r.h!=null);
+const reste = connus.length ? Math.max(...connus.map(r=>r.obs - r.h)) : null;
 const anyLP = res.some(r=>r.e.lp);
 const multi = res.length>1;
 let html = "";
@@ -945,16 +907,16 @@ warns.forEach(w=> html += `<div class="alertbox a2">${w}</div>`);
 html += `<div class="card"><div class="lbl">Synthèse</div>
 <table class="kv">
 <tr><th>Niveau le plus élevé</th><td style="color:${worst.g.lv<0?"var(--muted)":GCOL[worst.g.lv]}">${esc(worst.g.lv<0?"Non chiffrable":GLAB[worst.g.lv])} — ${esc(worst.e.med.n)}</td></tr>
-<tr><th>Surveillance</th><td>${maxObs} h minimum (molécule la plus lente)${reste>0?` — reste ${fmtH(reste)}`:" — fenêtre dépassée"}</td></tr>
-<tr><th>Délai écoulé</th><td>${hVarie
-? res.map(r=>`${esc(r.e.med.n)} ${esc(fmtH(r.h))}`).join(" · ")
-: esc(fmtH(h))}</td></tr>
+<tr><th>Surveillance</th><td>${maxObs} h minimum (molécule la plus lente)${reste==null?"":reste>0?` — reste ${fmtH(reste)}`:" — fenêtre dépassée"}</td></tr>
+<tr><th>Délai écoulé</th><td>${res.map(r=>`${esc(r.e.med.n)} ${r.h==null?"inconnu":esc(fmtH(r.h))}`).join(" · ")}</td></tr>
 </table></div>`;
 }
 res.forEach((r,i)=>{
 const {e,doseMg,isUI,g,tmax,obs}=r, m=e.med;
 // Chaque molécule porte son propre délai : les prises ne sont pas toujours simultanées.
-const h = r.h;
+// Un délai inconnu laisse la courbe, qui décrit la molécule, et retire tout ce qui situe
+// le patient dessus : point, chronologie, fenêtre restante, nomogramme.
+const hInc = r.h == null, h = hInc ? 0 : r.h;
 const fmtU = v => isUI ? v.toLocaleString("fr-FR")+" UI" : fmtDose(v);
 // une molécule dont aucune source ne publie le Tmax ni la demi-vie n'a ni courbe ni chronologie :
 // les tracer reviendrait à inventer la cinétique
@@ -1005,7 +967,7 @@ ${m.nodose?`<div class="gauge nod"><div class="gt">Gravité — dose</div>
 <div class="ticks"><span>Surveillance</span><span>Toxicité</span><span>Vital</span></div>
 <p class="xs mnu muted" style="margin-top:6px">Seuils ${poids<POIDS_ADULTE?"<b style=\"color:var(--ink2)\">pédiatriques</b>":"<b style=\"color:var(--ink2)\">adulte</b>"} publiés, retenus d'après un poids de ${poids} kg ; position entre deux seuils par interpolation.${m.dz?`
 <br><b style="color:var(--ink2)">Zone hachurée</b> : de ${fmtU(m.dz.lo*(m.dz.u==="mg/kg"?poids:1))} à ${fmtU(m.dz.hi*(m.dz.u==="mg/kg"?poids:1))}, les sources sûres ne s'accordent pas. L'application retient la borne basse.`:""}</p></div>`}
-${estPara?"":sansPK?`<div class="gauge nod"><div class="gt">Chronologie — où en est la concentration</div>
+${(estPara||hInc)?"":sansPK?`<div class="gauge nod"><div class="gt">Chronologie — où en est la concentration</div>
 <div class="gv" style="color:var(--muted)">Non évaluable</div>
 <div class="bar"><i style="width:0"></i></div>
 <div class="ticks"><span>${esc(fmtH(h))} depuis l'ingestion</span><span>Cinétique non publiée</span></div>
@@ -1022,11 +984,14 @@ sur la clinique et l'avis du centre antipoison.</p></div>`
 surveillance recommandée ${esc(fmtH(obs))}.</p></div>`}
 </div>
 ${sansPK?"":`<div class="hr"></div>
-${plotPK(cv,{obs:estPara?null:obs},h,m.n)}
+${plotPK(cv,{obs:estPara?null:obs},hInc?null:h,m.n)}
 <p class="capt">Modèle monocompartimental d'après la demi-vie et le Tmax${e.lp?" de la forme à libération prolongée":" publiés"}.
 En surdosage, l'absorption et la demi-vie sont souvent allongées : la courbe réelle est plus étalée.
 Tracé et découpage des phases : ${EXTRA}.</p>`}
-${/paracétamol/i.test(m.n) ? rumackHTML(e) : ""}
+${hInc?`<p class="xs mnu muted" style="margin-top:8px">Délai depuis la prise inconnu : la courbe
+décrit la molécule, mais la position du patient, la chronologie${/paracétamol/i.test(m.n)?" et le nomogramme":""}
+ne peuvent pas être établies. Renseignez le délai dès qu'il est connu, même approché.</p>`:""}
+${(!hInc && /paracétamol/i.test(m.n)) ? rumackHTML(e) : ""}
 <div class="hr"></div>
 <table class="kv">
 <tr><th>Demi-vie</th><td>${m.t12?esc(m.t12):`<span class="muted">non publiée</span>`}</td></tr>
@@ -1035,8 +1000,8 @@ ${m.disc?`<tr><th>Discordance</th><td class="dsc">${esc(m.disc)}</td></tr>`:""}
 ${m.estim?`<tr><th>Réserve</th><td class="muted">${esc(m.estim)} <span class="xtr" title="Paramètre non publié par la source réglementaire">estimation</span></td></tr>`:""}
 ${m.lp?`<tr><th>Forme retard</th><td>${esc(m.lp)}</td></tr>`:""}
 <tr><th>Surveillance</th><td>${estPara
-? `La conduite ne se règle pas sur une fenêtre de surveillance mais sur la paracétamolémie, prélevée au plus tôt à H4 et reportée sur le nomogramme ci-dessus.`
-: obs?`${obs} h minimum si asymptomatique${h<obs?` — reste ${fmtH(obs-h)}`:" — fenêtre dépassée"}${m.obss?"":" "+EXTRA}`:`<span class="muted">non déductible : cinétique non publiée</span>`}</td></tr>
+? `La conduite ne se règle pas sur une fenêtre de surveillance mais sur la paracétamolémie, prélevée au plus tôt à H4 et reportée sur le nomogramme.`
+: obs?`${obs} h minimum si asymptomatique${hInc?"":h<obs?` — reste ${fmtH(obs-h)}`:" — fenêtre dépassée"}${m.obss?"":" "+EXTRA}`:`<span class="muted">non déductible : cinétique non publiée</span>`}</td></tr>
 <tr><th>Signes</th><td>${esc(m.sg)}</td></tr>
 <tr><th>Antidote</th><td>${esc(m.anti)}</td></tr>
 </table>
@@ -1068,7 +1033,8 @@ const tEnd=cv.pts[cv.pts.length-1][0];
 const X=t=>L+(t/tEnd)*(R-L), Y=y=>B-y*(B-T);
 const d=cv.pts.map((p,i)=>(i?"L":"M")+X(p[0]).toFixed(1)+" "+Y(p[1]).toFixed(1)).join(" ");
 const area=d+` L${X(tEnd).toFixed(1)} ${B} L${X(0).toFixed(1)} ${B} Z`;
-const hx=X(Math.min(h,tEnd)), hy=Y(cv.at(Math.min(h,tEnd)));
+const sansPat = h == null;
+const hx=sansPat?0:X(Math.min(h,tEnd)), hy=sansPat?0:Y(cv.at(Math.min(h,tEnd)));
 const obsX = (m.obs!=null && m.obs<=tEnd) ? X(m.obs) : null;
 const gl=[0.25,0.5,0.75,1].map(v=>`<line class="grid" x1="${L}" y1="${Y(v)}" x2="${R}" y2="${Y(v)}"/>`).join("");
 const tk=Array.from({length:7},(_,i)=>{ const t=tEnd*i/6;
@@ -1080,9 +1046,9 @@ ${gl}<path d="${area}" fill="var(--accent)" opacity=".16"/>
 <line class="ax" x1="${L}" y1="${B}" x2="${R}" y2="${B}"/><line class="ax" x1="${L}" y1="${B}" x2="${L}" y2="${T}"/>
 ${obsX?`<line x1="${obsX}" y1="${T}" x2="${obsX}" y2="${B}" stroke="var(--g2)" stroke-width="1.4" stroke-dasharray="4 3"/>
 <text class="al" x="${Math.min(obsX+4,R-54)}" y="${B-7}" fill="var(--g2)" style="fill:var(--g2)">surveillance</text>`:""}
-<line class="guide" x1="${hx}" y1="${hy}" x2="${hx}" y2="${B}"/>
+${sansPat?"":`<line class="guide" x1="${hx}" y1="${hy}" x2="${hx}" y2="${B}"/>
 <circle cx="${hx}" cy="${hy}" r="5.5" fill="var(--g4)" stroke="var(--card)" stroke-width="2"/>
-<text class="pl" x="${hx>R-70?hx-8:hx+9}" y="${hy<T+26?hy+16:hy-9}" text-anchor="${hx>R-70?"end":"start"}" fill="var(--g4)" style="fill:var(--g4)">patient</text>
+<text class="pl" x="${hx>R-70?hx-8:hx+9}" y="${hy<T+26?hy+16:hy-9}" text-anchor="${hx>R-70?"end":"start"}" fill="var(--g4)" style="fill:var(--g4)">patient</text>`}
 ${tk}<text class="al" x="${L}" y="${B+30}">heures depuis l'ingestion</text>
 <text class="al" x="${L-6}" y="${Y(1)+3}" text-anchor="end">pic</text></svg>`;
 }
@@ -1187,7 +1153,7 @@ ${prochea?`À traiter si ${PR.risquequi.toLowerCase()}.`
 :"Le nomogramme ne retient pas d'indication, sous réserve des conditions ci-dessous."}${enc}${extra}</div>`;
 }
 function rumackHTML(e){
-const h = e.h==null ? CS.h : e.h;
+const h = e.h;
 PCP.h = h;
 return `<div class="hr"></div>
 <div class="lbl" style="margin-bottom:7px">Nomogramme de Rumack-Matthew — paracétamolémie</div>
